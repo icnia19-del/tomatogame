@@ -512,17 +512,7 @@
             databaseURL: "https://tomatogame-19f1f-default-rtdb.firebaseio.com" 
         };
 
-        const GAME_VERSION = "v8_1"; 
-        
-       // 화면 하단에 패치노트 배너 추가
-        const patchNote = document.createElement("div");
-        patchNote.id = "patch-note-banner";
-        // 🛠️ top: 10px을 지우고 bottom: 10px로 수정하여 화면 아래로 내렸습니다!
-        patchNote.style.cssText = "position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.6); color: #fff; padding: 5px 15px; border-radius: 20px; font-size: 12px; z-index: 1000; pointer-events: none; font-family: sans-serif; white-space: nowrap;";
-        patchNote.innerText = "📢 v8_1 패치노트: 3% 확률로 조커 수박 등장! (부딪힌 과일을 진화시키거나 소멸시킴)";
-        document.body.appendChild(patchNote);
-
-
+        const GAME_VERSION = "v8_0"; 
         let database = null;
 
         try {
@@ -823,38 +813,13 @@
         function getRandomFruitIndex() { return Math.floor(Math.random() * 4); }
 
         function dropCurrentItem() {
-    isClickable = false;
-    const fruitData = FRUIT_TYPES[currentFruitIdx]; 
-    const scale = (fruitData.radius * 2) / 72; 
-
-    // 🛠️ 3% 확률로 조커 수박(아이템) 여부 결정
-    const isJoker = Math.random() < 0.03;
-
-    const fruitBody = Bodies.circle(currentMouseX, 20, fruitData.radius, { 
-        restitution: 0.1, 
-        friction: 0.08, 
-        density: 0.001 * (fruitData.level + 1), 
-        render: { 
-            sprite: { 
-                texture: fruitData.imgSrc, 
-                xScale: scale, 
-                yScale: scale 
-            },
-            // 조커 수박일 경우 구분을 위해 약간 반투명하게 만듭니다
-            opacity: isJoker ? 0.6 : 1.0 
-        }, 
-        label: "fruit", 
-        level: fruitData.level, 
-        isSettled: false,
-        isJoker: isJoker // 🛠️ 조커 속성 부여!
-    }); 
-    
-    Composite.add(world, fruitBody);
-    
-    setTimeout(() => { if (!isGameOver) isClickable = true; }, 300);
-    currentFruitIdx = nextFruitIdx; 
-    nextFruitIdx = getRandomFruitIndex(); 
-    updateNextUI();
+            isClickable = false;
+            const fruitData = FRUIT_TYPES[currentFruitIdx]; const scale = (fruitData.radius * 2) / 72; 
+            const fruitBody = Bodies.circle(currentMouseX, 20, fruitData.radius, { restitution: 0.1, friction: 0.08, density: 0.001 * (fruitData.level + 1), render: { sprite: { texture: fruitData.imgSrc, xScale: scale, yScale: scale } }, label: "fruit", level: fruitData.level, isSettled: false });
+            Composite.add(world, fruitBody);
+            
+            setTimeout(() => { if (!isGameOver) isClickable = true; }, 300);
+            currentFruitIdx = nextFruitIdx; nextFruitIdx = getRandomFruitIndex(); updateNextUI();
         }
 
         function createFruitFixed(x, y, level) {
@@ -890,64 +855,26 @@
             else { if (gameOverTimer) { clearTimeout(gameOverTimer); gameOverTimer = null; } }
         }
 
-    Events.on(engine, "collisionStart", (event) => {
+        function setupEvents() {
+            Events.on(engine, "collisionStart", (event) => {
                 if (isGameOver) return;
                 event.pairs.forEach((pair) => {
                     const bodyA = pair.bodyA; const bodyB = pair.bodyB;
                     if (bodyA.label === "fruit" && bodyB.label !== "deadzone") bodyA.isSettled = true;
                     if (bodyB.label === "fruit" && bodyA.label !== "deadzone") bodyB.isSettled = true;
                     
-                    // 🛠️ 조커 수박 충돌 로직 추가!
-                    if (bodyA.label === "fruit" && bodyB.label === "fruit") {
+                    if (bodyA.label === "fruit" && bodyB.label === "fruit" && bodyA.level === bodyB.level) {
+                        const currentLevel = bodyA.level; if (currentLevel >= FRUIT_TYPES.length - 1) return; 
                         if (bodyA.isMerged || bodyB.isMerged) return;
-
-                        // 둘 중 하나가 조커 수박일 때
-                        if (bodyA.isJoker || bodyB.isJoker) {
-                            const jokerBody = bodyA.isJoker ? bodyA : bodyB;
-                            const targetBody = bodyA.isJoker ? bodyB : bodyA;
-
-                            jokerBody.isMerged = true;
-                            targetBody.isMerged = true;
-
-                            // 50% 확률 결정 (true면 진화, false면 증발)
-                            const isEvolve = Math.random() < 0.5;
-                            const currentLevel = targetBody.level;
-
-                            const newX = (bodyA.position.x + bodyB.position.x) / 2;
-                            const newY = (bodyA.position.y + bodyB.position.y) / 2;
-
-                            // 두 과일 모두 일단 제거
-                            Composite.remove(world, bodyA);
-                            Composite.remove(world, bodyB);
-
-                            if (isEvolve && currentLevel < FRUIT_TYPES.length - 1) {
-                                // 1) 진화: 한 단계 높은 과일 생성
-                                const nextLevel = currentLevel + 1;
-                                createFruitFixed(newX, newY, nextLevel);
-                                if (nextLevel < 8) {
-                                    playEpicSound(nextLevel);
-                                    window.gameScore += FRUIT_TYPES[nextLevel].score * 2; // 조커 보너스 점수 2배
-                                    updateScoreUI();
-                                }
-                            } else {
-                                // 2) 사라짐: 아무것도 생성하지 않고 이펙트 사운드 재생
-                                if (window.playEpicSound) playEpicSound(0); 
-                            }
-                            return; // 조커 로직이 실행되었으므로 일반 합치기는 건너뜁니다.
-                        }
-
-                        // 일반 과일 합치기 로직
-                        if (bodyA.level === bodyB.level) {
-                            const currentLevel = bodyA.level; if (currentLevel >= FRUIT_TYPES.length - 1) return; 
-                            bodyA.isMerged = true; bodyB.isMerged = true;
-                            const newX = (bodyA.position.x + bodyB.position.x) / 2; const newY = (bodyA.position.y + bodyB.position.y) / 2;
-                            Composite.remove(world, bodyA); Composite.remove(world, bodyB);
-                            const nextLevel = currentLevel + 1; createFruitFixed(newX, newY, nextLevel);
-                            if (nextLevel < 8) { playEpicSound(nextLevel); window.gameScore += FRUIT_TYPES[nextLevel].score; updateScoreUI(); }
-                        }
+                        bodyA.isMerged = true; bodyB.isMerged = true;
+                        const newX = (bodyA.position.x + bodyB.position.x) / 2; const newY = (bodyA.position.y + bodyB.position.y) / 2;
+                        Composite.remove(world, bodyA); Composite.remove(world, bodyB);
+                        const nextLevel = currentLevel + 1; createFruitFixed(newX, newY, nextLevel);
+                        if (nextLevel < 8) { playEpicSound(nextLevel); window.gameScore += FRUIT_TYPES[nextLevel].score; updateScoreUI(); }
                     }
                 });
             });
+
             Events.on(engine, "afterUpdate", () => { checkDeadzoneContact(); });
 
             Events.on(render, 'afterRender', function() {
