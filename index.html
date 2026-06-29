@@ -514,12 +514,14 @@
 
         const GAME_VERSION = "v8_1"; 
         
-        // 화면에 패치노트 배너 한 줄 추가
+       // 화면 하단에 패치노트 배너 추가
         const patchNote = document.createElement("div");
         patchNote.id = "patch-note-banner";
-        patchNote.style.cssText = "position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.6); color: #fff; padding: 5px 15px; border-radius: 20px; font-size: 12px; z-index: 1000; pointer-events: none; font-family: sans-serif; white-space: nowrap;";
+        // 🛠️ top: 10px을 지우고 bottom: 10px로 수정하여 화면 아래로 내렸습니다!
+        patchNote.style.cssText = "position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.6); color: #fff; padding: 5px 15px; border-radius: 20px; font-size: 12px; z-index: 1000; pointer-events: none; font-family: sans-serif; white-space: nowrap;";
         patchNote.innerText = "📢 v8_1 패치노트: 3% 확률로 조커 수박 등장! (부딪힌 과일을 진화시키거나 소멸시킴)";
         document.body.appendChild(patchNote);
+
 
         let database = null;
 
