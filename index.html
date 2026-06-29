@@ -837,7 +837,7 @@
             finalScoreElement.innerText = window.gameScore; finalRankElement.innerText = getCurrentRankName();
             gameOverOverlay.style.display = "flex";
 
-            if (window.gameScore >= 50000) {
+            if (window.gameScore >= 5000) {
                 document.getElementById("fame-input-container").style.setProperty("display", "flex", "important");
             }
             setTimeout(() => { isResetLocked = false; restartBtn.disabled = false; restartBtn.innerText = "다시 시작하기"; }, 2000);
