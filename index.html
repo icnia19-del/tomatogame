@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>토마토게임 - 랭킹 등록 버그 완전 수정판 (성장촉진제 제거)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f0f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px 10px;
+            box-sizing: border-box;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        #game-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #e17055;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+        }
+
+        #game-title span {
+            font-size: 14px;
+            color: #7f8c8d;
+            font-weight: normal;
+        }
+
+        #main-layout {
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+            gap: 15px;
+            max-width: 750px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        #rank-board {
+            background-color: #ffffff;
+            border: 2px solid #333;
+            border-radius: 12px;
+            padding: 8px;
+            width: 130px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            max-height: 608px;
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
+
+        #hall-of-fame-board {
+            background-color: #2d3436;
+            border: 2px solid #111;
+            border-radius: 12px;
+            padding: 10px;
+            width: 160px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            max-height: 608px;
+            overflow-y: auto;
+            box-sizing: border-box;
+            color: #fff;
+        }
+
+        #hall-of-fame-board h3 {
+            margin: 0 0 5px 0;
+            font-size: 13px;
+            text-align: center;
+            color: #ffeaa7;
+            border-bottom: 1px dashed #555;
+            padding-bottom: 5px;
+        }
+
+        .fame-item {
+            font-size: 11px;
+            padding: 4px 6px;
+            border-radius: 4px;
+            background-color: #3d4648;
+            display: flex;
+            justify-content: space-between;
+        }
+        .fame-item .name { color: #ffeaa7; font-weight: bold; overflow: hidden; text-overflow: ellipsis; max-width: 70px; }
+        .fame-item .score { color: #fff; }
+
+        .board-item {
+            font-size: 11px;
+            font-weight: bold;
+            color: #b2bec3;
+            padding: 4px 6px;
+            border-radius: 6px;
+            background-color: #f5f6fa;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+            border: 1px solid transparent;
+        }
+
+        .board-item.active {
+            color: #ffffff;
+            background-color: #e17055;
+            border-color: #d35400;
+            box-shadow: 0 0 8px rgba(225, 112, 85, 0.6);
+            transform: scale(1.03);
+        }
+
+        .board-item .pts {
+            font-size: 9px;
+            opacity: 0.8;
+        }
+
+        #main-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 400px;
+            flex-shrink: 0;
+        }
+
+        #game-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+
+        #ui-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            margin-bottom: 10px;
+            z-index: 10;
+            box-sizing: border-box;
+            gap: 6px;
+        }
+
+        .btn-row {
+            display: flex;
+            width: 100%;
+            gap: 6px;
+        }
+
+        .info-row {
+            display: flex;
+            width: 100%;
+            gap: 6px;
+        }
+
+        .audio-row {
+            display: flex;
+            width: 100%;
+            gap: 6px;
+        }
+
+        .audio-btn {
+            background-color: #74b9ff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 5px 0;
+            cursor: pointer;
+            flex: 1;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: background 0.2s;
+        }
+        .audio-btn.muted {
+            background-color: #a4b0be;
+        }
+
+        .ui-box {
+            background-color: #fff;
+            padding: 6px 4px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center;
+            font-weight: bold;
+            flex: 1.6;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .ui-title {
+            font-size: 11px;
+            color: #7f8c8d;
+            margin-bottom: 1px;
+        }
+
+        #score-display {
+            font-size: 13px;
+            color: #2d3436;
+            white-space: nowrap;
+        }
+
+        .skill-btn {
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 12px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            padding: 8px 4px;
+        }
+        .skill-btn span {
+            font-size: 10px;
+            opacity: 0.9;
+            margin-top: 2px;
+        }
+
+        #shake-btn { background-color: #e67e22; }
+        #clear-btn { background-color: #2ecc71; }
+
+        .skill-btn:disabled {
+            background-color: #bdc3c7 !important;
+            color: #7f8c8d;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        #next-fruit-preview {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 30px;
+        }
+
+        #next-fruit-img {
+            width: 28px;
+            height: 28px;
+            object-fit: contain;
+        }
+
+        #game-container {
+            position: relative;
+            width: 400px;
+            height: 600px;
+            background-color: #ffeaa7;
+            border: 4px solid #333;
+            border-radius: 15px;
+            box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+            overflow: hidden;
+            cursor: pointer;
+            touch-action: none;
+        }
+
+        .earthquake {
+            animation: shakeCanvas 0.15s infinite;
+        }
+        @keyframes shakeCanvas {
+            0% { transform: translate(2px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(0px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(2px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            100% { transform: translate(1px, -2px) rotate(0deg); }
+        }
+
+        #game-over-overlay {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            color: white;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #game-over-overlay h1 {
+            font-size: 36px;
+            margin-bottom: 10px;
+            color: #ff7675;
+        }
+
+        #game-over-overlay p {
+            font-size: 18px;
+            margin: 6px 0;
+        }
+        
+        #final-rank {
+            color: #ffeaa7;
+            font-weight: bold;
+        }
+
+        #fame-input-container {
+            display: none; 
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 15px;
+            background: rgba(255,255,255,0.1);
+            padding: 10px;
+            border-radius: 8px;
+            width: 80%;
+            box-sizing: border-box;
+        }
+        #fame-name-input {
+            padding: 8px;
+            border-radius: 4px;
+            border: none;
+            text-align: center;
+            font-size: 14px;
+            color: #000;
+        }
+        #fame-submit-btn {
+            background-color: #fdcb6e;
+            color: #2d3436;
+            border: none;
+            padding: 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        #restart-btn {
+            margin-top: 20px;
+            padding: 12px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            background-color: #00b894;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            transition: background 0.2s;
+        }
+
+        #restart-btn:disabled {
+            background-color: #7f8c8d;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        @media (max-width: 740px) {
+            #main-layout {
+                flex-direction: column;
+                align-items: center;
+                gap: 8px;
+            }
+            #rank-board, #hall-of-fame-board {
+                flex-direction: row;
+                width: 400px;
+                max-height: none;
+                overflow-x: auto;
+                overflow-y: hidden;
+                white-space: nowrap;
+                padding: 6px;
+            }
+            #hall-of-fame-board h3 { display: inline-block; border-bottom: none; border-right: 1px dashed #555; padding-right: 5px; margin-right: 5px; vertical-align: middle;}
+            .board-item, .fame-item {
+                display: inline-flex;
+                flex-direction: column;
+                gap: 2px;
+                padding: 4px 8px;
+                flex-shrink: 0;
+                vertical-align: middle;
+            }
+            #ui-container, #game-container {
+                transform: scale(0.92);
+                transform-origin: top center;
+            }
+            #main-wrapper {
+                width: 400px;
+                margin-bottom: -50px; 
+            }
+        }
+        @media (max-width: 420px) {
+            #game-title { font-size: 22px; }
+            #rank-board, #hall-of-fame-board { width: 340px; }
+            #ui-container, #game-container {
+                transform: scale(0.85);
+            }
+            #main-wrapper {
+                width: 340px;
+                margin-bottom: -110px; 
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-title">🍅 토마토게임 <span>제작자: 동호</span></div>
+
+    <div id="main-layout">
+        
+        <div id="rank-board">
+            <div class="board-item" id="r-50000"><span>절대신🌌</span><span class="pts">50k+</span></div>
+            <div class="board-item" id="r-40000"><span>준신급🌟</span><span class="pts">40k</span></div>
+            <div class="board-item" id="r-30000"><span>원수🎖️</span><span class="pts">30k</span></div>
+            <div class="board-item" id="r-25000"><span>대장⭐</span><span class="pts">25k</span></div>
+            <div class="board-item" id="r-20000"><span>중장⭐</span><span class="pts">20k</span></div>
+            <div class="board-item" id="r-16000"><span>소장⭐</span><span class="pts">16k</span></div>
+            <div class="board-item" id="r-12000"><span>준장⭐</span><span class="pts">12k</span></div>
+            <div class="board-item" id="r-9000"><span>대령🦅</span><span class="pts">9000</span></div>
+            <div class="board-item" id="r-7000"><span>중령🦅</span><span class="pts">7000</span></div>
+            <div class="board-item" id="r-5000"><span>소령🦅</span><span class="pts">5000</span></div>
+            <div class="board-item" id="r-3500"><span>대위💎</span><span class="pts">3500</span></div>
+            <div class="board-item" id="r-2500"><span>중위💎</span><span class="pts">2500</span></div>
+            <div class="board-item" id="r-1800"><span>소위💎</span><span class="pts">1800</span></div>
+            <div class="board-item" id="r-1200"><span>상사</span><span class="pts">1200</span></div>
+            <div class="board-item" id="r-800"><span>중사</span><span class="pts">800</span></div>
+            <div class="board-item" id="r-500"><span>하사</span><span class="pts">500</span></div>
+            <div class="board-item" id="r-300"><span>병장</span><span class="pts">300</span></div>
+            <div class="board-item" id="r-150"><span>상병</span><span class="pts">150</span></div>
+            <div class="board-item" id="r-50"><span>일병</span><span class="pts">50</span></div>
+            <div class="board-item" id="r-0"><span>이병</span><span class="pts">0</span></div>
+        </div>
+
+        <div id="main-wrapper">
+            <div id="game-wrapper">
+                <div id="ui-container">
+                    <div class="audio-row">
+                        <button id="bgm-toggle-btn" class="audio-btn">🎵 BGM: ON</button>
+                        <button id="sfx-toggle-btn" class="audio-btn">🔊 SFX: ON</button>
+                    </div>
+
+                    <div class="btn-row">
+                        <button id="shake-btn" class="skill-btn">🌋 맵 흔들기 <span id="shake-count">(3회 가능)</span></button>
+                        <button id="clear-btn" class="skill-btn">🧹 체리·딸기 제거 <span id="clear-count">(1회 가능)</span></button>
+                    </div>
+                    
+                    <div class="info-row">
+                        <div class="ui-box">
+                            <div class="ui-title">SCORE</div>
+                            <div id="score-display">0점 <span id="rank-badge">(이등병)</span></div>
+                        </div>
+                        
+                        <div class="ui-box" style="flex: 0.7;">
+                            <div class="ui-title">NEXT</div>
+                            <div id="next-fruit-preview">
+                                <img id="next-fruit-img" src="" alt="next">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="game-container">
+                    <div id="game-over-overlay">
+                        <h1>GAME OVER</h1>
+                        <p>최종 스코어: <strong><span id="final-score">0</span>점</strong></p>
+                        <p>최종 계급: <span id="final-rank">이등병</span></p>
+                        
+                        <div id="fame-input-container">
+                            <p style="font-size:14px; color:#ffeaa7; margin:0;">🌌 절대신 등극! 명예의 전당 등록</p>
+                            <input type="text" id="fame-name-input" placeholder="닉네임 입력 (최대 6자)" maxlength="6">
+                            <button id="fame-submit-btn" onclick="globalSubmitFame()">기록 서버로 전송</button>
+                        </div>
+
+                        <button id="restart-btn" disabled>대기 중 (2초)</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="hall-of-fame-board">
+            <h3>🌌 명예의 전당</h3>
+            <div id="fame-list-content">
+                <div class="fame-item" style="justify-content:center; color:#aaa;">로딩 중...</div>
+            </div>
+        </div>
+
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCwWGu34NE9CbJ08TvTSK3uGn8dhOEUp_o",
+            authDomain: "tomatogame-19f1f.firebaseapp.com",
+            projectId: "tomatogame-19f1f",
+            storageBucket: "tomatogame-19f1f.firebasestorage.app",
+            messagingSenderId: "716366225083",
+            appId: "1:716366225083:web:42188da673da1cc4c1939e",
+            databaseURL: "https://tomatogame-19f1f-default-rtdb.firebaseio.com" 
+        };
+
+        const GAME_VERSION = "v8.0"; 
+        let database = null;
+
+        try {
+            const app = initializeApp(firebaseConfig);
+            database = getDatabase(app);
+            loadHallOfFame();
+        } catch(e) { 
+            console.error("Firebase 연결 에러: ", e); 
+            showDummyFame();
+        }
+
+        function loadHallOfFame() {
+            if(!database) { showDummyFame(); return; }
+            const dbRef = ref(database, "hall_of_fame/" + GAME_VERSION);
+            
+            onValue(dbRef, (snapshot) => {
+                const listEl = document.getElementById("fame-list-content");
+                listEl.innerHTML = "";
+                let records = [];
+                snapshot.forEach((childSnapshot) => {
+                    records.push(childSnapshot.val());
+                });
+                
+                records.sort((a, b) => b.score - a.score);
+                records = records.slice(0, 20); 
+
+                if(records.length === 0) {
+                    listEl.innerHTML = `<div class="fame-item" style="justify-content:center; color:#aaa;">도전자 없음</div>`;
+                    return;
+                }
+
+                records.forEach((data, index) => {
+                    const medal = index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : `${index+1}.`;
+                    listEl.innerHTML += `
+                        <div class="fame-item">
+                            <span class="name">${medal} ${escapeHtml(data.name)}</span>
+                            <span class="score">${data.score.toLocaleString()}</span>
+                        </div>`;
+                });
+            }, (err) => { showDummyFame(); });
+        }
+
+        function showDummyFame() {
+            const listEl = document.getElementById("fame-list-content");
+            listEl.innerHTML = `
+                <div class="fame-item"><span class="name">🥇 동호</span><span class="score">75,400</span></div>
+                <div class="fame-item"><span class="name">🥈 도전자</span><span class="score">51,200</span></div>`;
+        }
+
+        function escapeHtml(str) { return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+        window.globalSubmitFame = function() {
+            const nameInput = document.getElementById("fame-name-input");
+            const name = nameInput.value.trim();
+            if(!name) { alert("닉네임을 입력해주세요!"); return; }
+
+            if(database) {
+                const dbRef = ref(database, "hall_of_fame/" + GAME_VERSION);
+                push(dbRef, {
+                    name: name,
+                    score: window.gameScore,
+                    timestamp: Date.now()
+                }).then(() => {
+                    alert("축하합니다! 명예의 전당 등록 성공!");
+                    document.getElementById("fame-input-container").style.display = "none";
+                }).catch((err) => { 
+                    alert("전송 실패! 파이어베이스 설정을 확인하세요.");
+                    console.error(err);
+                });
+            } else {
+                alert("서버 비연동 모드입니다. 로컬 리스트에 반영합니다.");
+                const listEl = document.getElementById("fame-list-content");
+                listEl.innerHTML = `<div class="fame-item"><span class="name">⭐ ${escapeHtml(name)}</span><span class="score">${window.gameScore.toLocaleString()}</span></div>` + listEl.innerHTML;
+                document.getElementById("fame-input-container").style.display = "none";
+            }
+        };
+    </script>
+
+    <script>
+        const { Engine, Render, Runner, Bodies, Composite, Body, Events } = Matter;
+
+        let engine, world, render, runner;
+        const container = document.getElementById("game-container");
+        const scoreDisplay = document.getElementById("score-display");
+        const rankBadge = document.getElementById("rank-badge");
+        const nextImgElement = document.getElementById("next-fruit-img");
+        const gameOverOverlay = document.getElementById("game-over-overlay");
+        const finalScoreElement = document.getElementById("final-score");
+        const finalRankElement = document.getElementById("final-rank");
+        const restartBtn = document.getElementById("restart-btn");
+        const shakeBtn = document.getElementById("shake-btn");
+        const clearBtn = document.getElementById("clear-btn");
+
+        const canvasWidth = 400;
+        const canvasHeight = 600;
+        const gameOverLineY = 32; 
+
+        window.gameScore = 0; 
+        let isClickable = true;
+        let isGameOver = false;
+        let gameOverSensor;
+        
+        let audioCtx = null;
+        let bgmMasterGain = null;
+        let isBgmEnabled = true;
+        let isSfxEnabled = true;
+        let bgmIntervalId = null;
+
+        let isResetLocked = false; 
+        let shakeLeftCount = 3; 
+        let hasClearChance = true; 
+        let isImmuneMode = false;  
+
+        let gameStartTime = 0;              
+        let gameOverTimer = null;           
+        const initialImmuneDuration = 10000; 
+        const gameOverDelay = 1500;          
+
+        const FRUIT_TYPES = [
+            { level: 0, name: "체리", radius: 15, score: 2, imgSrc: "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f352.png" },
+            { level: 1, name: "딸기", radius: 22, score: 4, imgSrc: "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f353.png" },
+            { level: 2, name: "포도", radius: 30, score: 8, imgSrc: "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f347.png" },
+            { level: 3, name: "귤", radius: 40, score: 16, imgSrc: "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f34a.png" },
+            { level: 4, name: "빨간사과", radius: 52, score: 32, imgSrc: "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f34e.png" },
+            { level: 5, name: "배", radius: 66, score: 64, imgSrc: "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f350.png" }, 
+            { level: 6, name: "멜론", radius: 82, score: 100, imgSrc: "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f348.png" }, 
+            { level: 7, name: "왕사과", radius: 100, score: 900, imgSrc: "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f34f.png" }, 
+            { level: 8, name: "토마토", radius: 122, score: 3000, imgSrc: "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f345.png" } 
+        ];
+
+        FRUIT_TYPES.forEach(fruit => {
+            fruit.imgObj = new Image();
+            fruit.imgObj.src = fruit.imgSrc;
+        });
+
+        let currentFruitIdx = 0;
+        let nextFruitIdx = getRandomFruitIndex();
+        let currentMouseX = canvasWidth / 2;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                bgmMasterGain = audioCtx.createGain();
+                bgmMasterGain.connect(audioCtx.destination);
+                startBGMSequence();
+            }
+            if (audioCtx.state === 'suspended') { audioCtx.resume(); }
+        }
+
+        function startBGMSequence() {
+            if (bgmIntervalId) return;
+            const melody = [523.25, 587.33, 659.25, 523.25, 659.25, 523.25, 783.99, 392.00];
+            let noteIndex = 0;
+            bgmIntervalId = setInterval(() => {
+                if (!isBgmEnabled || isGameOver) return;
+                try {
+                    const osc = audioCtx.createOscillator();
+                    const noteGain = audioCtx.createGain();
+                    osc.type = "sine"; 
+                    osc.frequency.setValueAtTime(melody[noteIndex], audioCtx.currentTime);
+                    noteGain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+                    noteGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.16);
+                    osc.connect(noteGain); noteGain.connect(bgmMasterGain);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.16);
+                    noteIndex = (noteIndex + 1) % melody.length;
+                } catch(e){}
+            }, 250);
+        }
+
+        function toggleBGM(e) { if (e) e.stopPropagation(); initAudio(); isBgmEnabled = !isBgmEnabled; document.getElementById("bgm-toggle-btn").innerText = isBgmEnabled ? "🎵 BGM: ON" : "🎵 BGM: OFF"; }
+        function toggleSFX(e) { if (e) e.stopPropagation(); initAudio(); isSfxEnabled = !isSfxEnabled; document.getElementById("sfx-toggle-btn").innerText = isSfxEnabled ? "🔊 SFX: ON" : "🔊 SFX: OFF"; }
+
+        function playEpicSound(level) {
+            if (!isSfxEnabled) return;
+            try {
+                const baseFrequencies = [329.63, 392.00, 523.25, 659.25, 783.99, 1046.50]; 
+                const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+                osc.type = "sine"; osc.frequency.setValueAtTime(baseFrequencies[Math.min(level, 5)], audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+            } catch (e) {}
+        }
+
+        function triggerEarthquake(e) {
+            if (e) e.stopPropagation(); initAudio();
+            if (shakeLeftCount <= 0 || isGameOver) return;
+            shakeLeftCount--;
+            document.getElementById("shake-count").innerText = shakeLeftCount > 0 ? `(${shakeLeftCount}회 남음)` : "(사용 완료)";
+            if(shakeLeftCount <= 0) shakeBtn.disabled = true;
+            isImmuneMode = true; container.classList.add("earthquake");
+            const allBodies = Composite.allBodies(world);
+            allBodies.forEach(body => {
+                if (body.label === "fruit") { Body.setVelocity(body, { x: (Math.random() - 0.5) * 10, y: -6 }); body.isSettled = false; }
+            });
+            setTimeout(() => { container.classList.remove("earthquake"); isImmuneMode = false; }, 1000);
+        }
+
+        function triggerClearLowFruits(e) {
+            if (e) e.stopPropagation(); initAudio();
+            if (!hasClearChance || isGameOver) return;
+            hasClearChance = false; clearBtn.disabled = true;
+            document.getElementById("clear-count").innerText = "(사용 완료)";
+            isImmuneMode = true;
+            const allBodies = Composite.allBodies(world);
+            allBodies.forEach(body => {
+                if (body.label === "fruit" && (body.level === 0 || body.level === 1)) { Composite.remove(world, body); }
+                else if (body.label === "fruit") { body.isSettled = false; }
+            });
+            setTimeout(() => { isImmuneMode = false; }, 1000);
+        }
+
+        function getCurrentRankName() {
+            if (window.gameScore >= 50000) return "절대신 🌌👑";
+            if (window.gameScore >= 40000) return "준신급 🌟✨";
+            if (window.gameScore >= 30000) return "원수 🎖️⭐";
+            if (window.gameScore >= 25000) return "대장 ⭐⭐⭐⭐";
+            if (window.gameScore >= 20000) return "중장 ⭐⭐⭐";
+            if (window.gameScore >= 16000) return "소장 ⭐⭐";
+            if (window.gameScore >= 12000) return "준장 ⭐";
+            if (window.gameScore >= 9000)  return "대령 🦅";
+            if (window.gameScore >= 7000)  return "중령 🦅";
+            if (window.gameScore >= 5000)  return "소령 🦅";
+            if (window.gameScore >= 3500)  return "대위 💎";
+            if (window.gameScore >= 2500)  return "중위 💎";
+            if (window.gameScore >= 1800)  return "소위 💎";
+            if (window.gameScore >= 1200)  return "상사";
+            if (window.gameScore >= 800)   return "중사";
+            if (window.gameScore >= 500)   return "하사";
+            if (window.gameScore >= 300)   return "병장";
+            if (window.gameScore >= 150)   return "상병";
+            if (window.gameScore >= 50)    return "일병";
+            return "이등병";
+        }
+
+        function updateRankBoardHighlight() {
+            document.querySelectorAll(".board-item").forEach(item => item.classList.remove("active"));
+            let targetId = "r-0";
+            if (window.gameScore >= 50000) targetId = "r-50000";
+            else if (window.gameScore >= 40000) targetId = "r-40000";
+            else if (window.gameScore >= 30000) targetId = "r-30000";
+            else if (window.gameScore >= 25000) targetId = "r-25000";
+            else if (window.gameScore >= 20000) targetId = "r-20000";
+            else if (window.gameScore >= 16000) targetId = "r-16000";
+            else if (window.gameScore >= 12000) targetId = "r-12000";
+            else if (window.gameScore >= 9000)  targetId = "r-9000";
+            else if (window.gameScore >= 7000)  targetId = "r-7000";
+            else if (window.gameScore >= 5000)  targetId = "r-5000";
+            else if (window.gameScore >= 3500)  targetId = "r-3500";
+            else if (window.gameScore >= 2500)  targetId = "r-2500";
+            else if (window.gameScore >= 1800)  targetId = "r-1800";
+            else if (window.gameScore >= 1200)  targetId = "r-1200";
+            else if (window.gameScore >= 800)   targetId = "r-800";
+            else if (window.gameScore >= 500)   targetId = "r-500";
+            else if (window.gameScore >= 300)   targetId = "r-300";
+            else if (window.gameScore >= 150)   targetId = "r-150";
+            else if (window.gameScore >= 50)    targetId = "r-50";
+
+            const activeEl = document.getElementById(targetId);
+            if (activeEl) { activeEl.classList.add("active"); }
+        }
+
+        function updateScoreUI() {
+            const rankName = getCurrentRankName();
+            scoreDisplay.innerHTML = `${window.gameScore}점 <span id="rank-badge">(${rankName})</span>`;
+            updateRankBoardHighlight();
+        }
+
+        function initGame() {
+            if (engine) { Composite.clear(world); Engine.clear(engine); Render.stop(render); Runner.stop(runner); render.canvas.remove(); }
+            if (gameOverTimer) { clearTimeout(gameOverTimer); gameOverTimer = null; }
+            container.classList.remove("earthquake");
+            engine = Engine.create({ enableSleeping: false }); world = engine.world;
+
+            render = Render.create({ element: container, engine: engine, options: { width: canvasWidth, height: canvasHeight, background: '#ffeaa7', wireframes: false, pixelRatio: 1 } });
+            Render.run(render); runner = Runner.create(); Runner.run(runner, engine);
+
+            window.gameScore = 0; updateScoreUI();
+            shakeLeftCount = 3; shakeBtn.disabled = false; document.getElementById("shake-count").innerText = "(3회 가능)";
+            hasClearChance = true; clearBtn.disabled = false; document.getElementById("clear-count").innerText = "(1회 가능)";
+
+            isImmuneMode = false; isGameOver = false; isClickable = true; isResetLocked = false;
+            gameOverOverlay.style.display = "none"; document.getElementById("fame-input-container").style.display = "none";
+            document.getElementById("fame-name-input").value = ""; restartBtn.disabled = true;
+            
+            gameStartTime = Date.now(); currentFruitIdx = getRandomFruitIndex(); nextFruitIdx = getRandomFruitIndex();
+            updateNextUI();
+
+            const wallThickness = 50;
+            const ground = Bodies.rectangle(canvasWidth / 2, canvasHeight + wallThickness / 2, canvasWidth, wallThickness, { isStatic: true, label: "wall", render: { visible: false } });
+            const leftWall = Bodies.rectangle(-wallThickness / 2, canvasHeight / 2, wallThickness, canvasHeight, { isStatic: true, label: "wall", render: { visible: false } });
+            const rightWall = Bodies.rectangle(canvasWidth + wallThickness / 2, canvasHeight / 2, wallThickness, canvasHeight, { isStatic: true, label: "wall", render: { visible: false } });
+            gameOverSensor = Bodies.rectangle(canvasWidth / 2, gameOverLineY / 2, canvasWidth, gameOverLineY, { isStatic: true, isSensor: true, label: "deadzone", render: { visible: false } });
+
+            Composite.add(world, [ground, leftWall, rightWall, gameOverSensor]);
+            setupEvents();
+        }
+
+        function getRandomFruitIndex() { return Math.floor(Math.random() * 4); }
+
+        function dropCurrentItem() {
+            isClickable = false;
+            const fruitData = FRUIT_TYPES[currentFruitIdx]; const scale = (fruitData.radius * 2) / 72; 
+            const fruitBody = Bodies.circle(currentMouseX, 20, fruitData.radius, { restitution: 0.1, friction: 0.08, density: 0.001 * (fruitData.level + 1), render: { sprite: { texture: fruitData.imgSrc, xScale: scale, yScale: scale } }, label: "fruit", level: fruitData.level, isSettled: false });
+            Composite.add(world, fruitBody);
+            
+            setTimeout(() => { if (!isGameOver) isClickable = true; }, 300);
+            currentFruitIdx = nextFruitIdx; nextFruitIdx = getRandomFruitIndex(); updateNextUI();
+        }
+
+        function createFruitFixed(x, y, level) {
+            if (level === 8) { window.gameScore += 5000; updateScoreUI(); return; }
+            const fruitData = FRUIT_TYPES[level]; const scale = (fruitData.radius * 2) / 72; 
+            const fruitBody = Bodies.circle(x, y, fruitData.radius, { restitution: 0.1, friction: 0.08, density: 0.001 * (level + 1), render: { sprite: { texture: fruitData.imgSrc, xScale: scale, yScale: scale } }, label: "fruit", level: level, isSettled: true });
+            Composite.add(world, fruitBody);
+        }
+
+        function updateNextUI() { const nextFruit = FRUIT_TYPES[nextFruitIdx]; nextImgElement.src = nextFruit.imgSrc; }
+
+        function triggerGameOver() {
+            if (isGameOver || isImmuneMode) return; isGameOver = true; isClickable = false; isResetLocked = true; 
+
+            finalScoreElement.innerText = window.gameScore; finalRankElement.innerText = getCurrentRankName();
+            gameOverOverlay.style.display = "flex";
+
+            if (window.gameScore >= 50000) {
+                document.getElementById("fame-input-container").style.setProperty("display", "flex", "important");
+            }
+            setTimeout(() => { isResetLocked = false; restartBtn.disabled = false; restartBtn.innerText = "다시 시작하기"; }, 2000);
+        }
+
+        function getEventX(e) { const rect = container.getBoundingClientRect(); const clientX = e.touches ? e.touches[0].clientX : e.clientX; return clientX - rect.left; }
+
+        function checkDeadzoneContact() {
+            if (isGameOver || isImmuneMode) return; if (Date.now() - gameStartTime < initialImmuneDuration) return;
+            const allBodies = Composite.allBodies(world); let isTouching = false;
+            for (let i = 0; i < allBodies.length; i++) {
+                const b = allBodies[i]; if (b.label === "fruit" && b.isSettled) { if (b.position.y - b.circleRadius <= gameOverLineY) { isTouching = true; break; } }
+            }
+            if (isTouching) { if (!gameOverTimer) { gameOverTimer = setTimeout(() => { triggerGameOver(); }, gameOverDelay); } }
+            else { if (gameOverTimer) { clearTimeout(gameOverTimer); gameOverTimer = null; } }
+        }
+
+        function setupEvents() {
+            Events.on(engine, "collisionStart", (event) => {
+                if (isGameOver) return;
+                event.pairs.forEach((pair) => {
+                    const bodyA = pair.bodyA; const bodyB = pair.bodyB;
+                    if (bodyA.label === "fruit" && bodyB.label !== "deadzone") bodyA.isSettled = true;
+                    if (bodyB.label === "fruit" && bodyA.label !== "deadzone") bodyB.isSettled = true;
+                    
+                    if (bodyA.label === "fruit" && bodyB.label === "fruit" && bodyA.level === bodyB.level) {
+                        const currentLevel = bodyA.level; if (currentLevel >= FRUIT_TYPES.length - 1) return; 
+                        if (bodyA.isMerged || bodyB.isMerged) return;
+                        bodyA.isMerged = true; bodyB.isMerged = true;
+                        const newX = (bodyA.position.x + bodyB.position.x) / 2; const newY = (bodyA.position.y + bodyB.position.y) / 2;
+                        Composite.remove(world, bodyA); Composite.remove(world, bodyB);
+                        const nextLevel = currentLevel + 1; createFruitFixed(newX, newY, nextLevel);
+                        if (nextLevel < 8) { playEpicSound(nextLevel); window.gameScore += FRUIT_TYPES[nextLevel].score; updateScoreUI(); }
+                    }
+                });
+            });
+
+            Events.on(engine, "afterUpdate", () => { checkDeadzoneContact(); });
+
+            Events.on(render, 'afterRender', function() {
+                const context = render.context; context.save(); context.beginPath(); context.setLineDash([5, 5]); context.moveTo(0, gameOverLineY); context.lineTo(canvasWidth, gameOverLineY);
+                context.strokeStyle = "rgba(255, 50, 50, 0.95)"; context.lineWidth = 3; context.stroke();
+                if (isGameOver) { context.restore(); return; }
+
+                context.beginPath(); context.setLineDash([4, 4]); context.moveTo(currentMouseX, 15); context.lineTo(currentMouseX, canvasHeight); context.strokeStyle = "rgba(0,0,0,0.15)"; context.stroke();
+                const currentFruit = FRUIT_TYPES[currentFruitIdx]; const size = currentFruit.radius * 2;
+                if (currentFruit.imgObj.complete) { context.drawImage(currentFruit.imgObj, currentMouseX - currentFruit.radius, 20 - currentFruit.radius, size, size); }
+                context.restore();
+            });
+        }
+
+        function handleMove(e) {
+            if (isGameOver) return; currentMouseX = getEventX(e); const radius = FRUIT_TYPES[currentFruitIdx].radius;
+            if (currentMouseX < radius) currentMouseX = radius; if (currentMouseX > canvasWidth - radius) currentMouseX = canvasWidth - radius;
+        }
+
+        container.addEventListener("mousemove", handleMove);
+        container.addEventListener("touchmove", (e) => { handleMove(e); }, { passive: true });
+        container.addEventListener("click", (e) => {
+            if (e.target.closest("#ui-container") || e.target === restartBtn || e.target.closest("#rank-board") || e.target.closest("#hall-of-fame-board")) return;
+            if (isGameOver || !isClickable) return; initAudio(); dropCurrentItem(); 
+        });
+        restartBtn.addEventListener("click", (e) => { e.stopPropagation(); if (isResetLocked) return; initGame(); });
+        document.getElementById("bgm-toggle-btn").addEventListener("click", toggleBGM);
+        document.getElementById("sfx-toggle-btn").addEventListener("click", toggleSFX);
+        shakeBtn.addEventListener("click", triggerEarthquake); clearBtn.addEventListener("click", triggerClearLowFruits);
+
+        initGame();
+    </script>
+</body>
+</html>
